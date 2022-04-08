@@ -67,6 +67,9 @@ export class GraphicsGeometry extends BatchGeometry
     /** An array of points to draw, 2 numbers per point */
     points: number[] = [];
 
+    /** curr point offset to line center */
+    normalOffsets: number[] = [];
+
     /** The collection of colors */
     colors: number[] = [];
 
@@ -156,6 +159,7 @@ export class GraphicsGeometry extends BatchGeometry
         this.shapeIndex = 0;
 
         this.points.length = 0;
+        this.normalOffsets.length = 0;
         this.colors.length = 0;
         this.uvs.length = 0;
         this.indices.length = 0;
@@ -260,6 +264,8 @@ export class GraphicsGeometry extends BatchGeometry
 
         this.points.length = 0;
         this.points = null;
+        this.normalOffsets.length = 0;
+        this.normalOffsets = null;
         this.colors.length = 0;
         this.colors = null;
         this.uvs.length = 0;
@@ -707,7 +713,8 @@ export class GraphicsGeometry extends BatchGeometry
         const textureIds = this.textureIds;
 
         // verts are 2 positions.. so we * by 3 as there are 6 properties.. then 4 cos its bytes
-        const glPoints = new ArrayBuffer(verts.length * 3 * 4);
+        // 1个点占8个float=8*4=32byte, 则x占16byte, y占16byte, 所以总长度是 verts.length * 16
+        const glPoints = new ArrayBuffer(verts.length * 16);
         const f32 = new Float32Array(glPoints);
         const u32 = new Uint32Array(glPoints);
 
@@ -717,6 +724,10 @@ export class GraphicsGeometry extends BatchGeometry
         {
             f32[p++] = verts[i * 2];
             f32[p++] = verts[(i * 2) + 1];
+
+            // isNative时, normalOffset均为0
+            f32[p++] = 0;
+            f32[p++] = 0;
 
             f32[p++] = uvs[i * 2];
             f32[p++] = uvs[(i * 2) + 1];
@@ -990,5 +1001,19 @@ export class GraphicsGeometry extends BatchGeometry
             uvs[i] = (uvs[i] + offsetX) * scaleX;
             uvs[i + 1] = (uvs[i + 1] + offsetY) * scaleY;
         }
+    }
+
+    // (vertexX, vertexY): 三角化顶点
+    // (x0,y0): tessellationt顶点
+    pushLineVertex(vertexX: number, vertexY: number, x0: number, y0: number) {
+        this.points.push(vertexX, vertexY);
+        const dx = vertexX - x0;
+        const dy = vertexY - y0;
+        this.normalOffsets.push(-dx, -dy);
+    }
+
+    pushFillVertex(...vertexs: number[]) {
+        this.points.push(...vertexs);
+        this.normalOffsets.push(...new Array(vertexs.length).fill(0));
     }
 }

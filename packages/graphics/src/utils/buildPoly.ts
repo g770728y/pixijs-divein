@@ -61,6 +61,7 @@ export const buildPoly: IShapeBuildCommand = {
 
     triangulate(graphicsData, graphicsGeometry)
     {
+        const geo = graphicsGeometry;
         let points = graphicsData.points;
         const holes = graphicsData.holes;
         const verts = graphicsGeometry.points;
@@ -102,7 +103,7 @@ export const buildPoly: IShapeBuildCommand = {
 
             for (let i = 0; i < points.length; i++)
             {
-                verts.push(points[i]);
+                geo.pushFillVertex(points[i]);
             }
         }
     },

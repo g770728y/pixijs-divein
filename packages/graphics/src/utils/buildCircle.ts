@@ -156,6 +156,7 @@ export const buildCircle: IShapeBuildCommand = {
 
     triangulate(graphicsData, graphicsGeometry)
     {
+        const geo = graphicsGeometry;
         const points = graphicsData.points;
         const verts = graphicsGeometry.points;
         const indices = graphicsGeometry.indices;
@@ -184,17 +185,17 @@ export const buildCircle: IShapeBuildCommand = {
         const matrix = graphicsData.matrix;
 
         // Push center (special point)
-        verts.push(
+        geo.pushFillVertex(
             graphicsData.matrix ? (matrix.a * x) + (matrix.c * y) + matrix.tx : x,
             graphicsData.matrix ? (matrix.b * x) + (matrix.d * y) + matrix.ty : y);
 
         vertPos++;
 
-        verts.push(points[0], points[1]);
+        geo.pushFillVertex(points[0], points[1]);
 
         for (let i = 2; i < points.length; i += 2)
         {
-            verts.push(points[i], points[i + 1]);
+            geo.pushFillVertex(points[i], points[i + 1]);
 
             // add some uvs
             indices.push(vertPos++, center, vertPos);

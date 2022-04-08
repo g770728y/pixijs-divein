@@ -48,12 +48,15 @@ export class BatchPluginFactory
      */
     static create(options?: IBatchFactoryOptions): typeof AbstractBatchRenderer
     {
-        const { vertex, fragment, vertexSize, geometryClass } = Object.assign({
-            vertex: defaultVertex,
-            fragment: defaultFragment,
-            geometryClass: BatchGeometry,
-            vertexSize: 6,
-        }, options);
+        const { vertex, fragment, vertexSize, geometryClass } = Object.assign(
+            {
+                vertex: defaultVertex,
+                fragment: defaultFragment,
+                geometryClass: BatchGeometry,
+                vertexSize: 8,
+            },
+            options
+        );
 
         return class BatchPlugin extends AbstractBatchRenderer
         {

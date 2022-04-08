@@ -16,7 +16,7 @@ import { LINE_JOIN, LINE_CAP, GRAPHICS_CURVES } from '../const';
  * @param {number} y - Y-coord of end point
  * @param {number} nx - X-coord of line normal pointing inside
  * @param {number} ny - Y-coord of line normal pointing inside
- * @param {Array<number>} verts - vertex buffer
+ * @param {Array<number>} geo - GraphicsGeometry
  * @returns {}
  */
 function square(
@@ -27,9 +27,8 @@ function square(
     innerWeight: number,
     outerWeight: number,
     clockwise: boolean, /* rotation for square (true at left end, false at right end) */
-    verts: Array<number>
-): number
-{
+    geo: GraphicsGeometry
+): number {
     const ix = x - (nx * innerWeight);
     const iy = y - (ny * innerWeight);
     const ox = x + (nx * outerWeight);
@@ -39,13 +38,11 @@ function square(
     let exx; let
         eyy;
 
-    if (clockwise)
-    {
+    if (clockwise) {
         exx = ny;
         eyy = -nx;
     }
-    else
-    {
+    else {
         exx = -ny;
         eyy = nx;
     }
@@ -57,8 +54,8 @@ function square(
     const eoy = oy + eyy;
 
     /* Square itself must be inserted clockwise*/
-    verts.push(eix, eiy);
-    verts.push(eox, eoy);
+    geo.pushLineVertex(eix, eiy, x, y);
+    geo.pushLineVertex(eox, eoy, x, y);
 
     return 2;
 }
@@ -76,8 +73,8 @@ function square(
  * @param {number} sy - Y-coord of arc start
  * @param {number} ex - X-coord of arc end
  * @param {number} ey - Y-coord of arc end
- * @param {Array<number>} verts - buffer of vertices
  * @param {boolean} clockwise - orientation of vertices
+ * @param {GraphicsGeometry} geo
  * @returns {number} - no. of vertices pushed
  */
 function round(
@@ -87,22 +84,19 @@ function round(
     sy: number,
     ex: number,
     ey: number,
-    verts: Array<number>,
     clockwise: boolean, /* if not cap, then clockwise is turn of joint, otherwise rotation from angle0 to angle1 */
-): number
-{
+    geo: GraphicsGeometry
+): number {
     const cx2p0x = sx - cx;
     const cy2p0y = sy - cy;
 
     let angle0 = Math.atan2(cx2p0x, cy2p0y);
     let angle1 = Math.atan2(ex - cx, ey - cy);
 
-    if (clockwise && angle0 < angle1)
-    {
+    if (clockwise && angle0 < angle1) {
         angle0 += Math.PI * 2;
     }
-    else if (!clockwise && angle0 > angle1)
-    {
+    else if (!clockwise && angle0 > angle1) {
         angle1 += Math.PI * 2;
     }
 
@@ -134,37 +128,39 @@ function round(
 
     startAngle += angleInc;
 
-    if (clockwise)
-    {
-        verts.push(cx, cy);
-        verts.push(sx, sy);
+    if (clockwise) {
+        geo.pushLineVertex(cx, cy, cx, cy);
+        geo.pushLineVertex(sx, sy, cx, cy);
 
-        for (let i = 1, angle = startAngle; i < segCount; i++, angle += angleInc)
-        {
-            verts.push(cx, cy);
-            verts.push(cx + ((Math.sin(angle) * radius)),
-                cy + ((Math.cos(angle) * radius)));
+        for (let i = 1, angle = startAngle; i < segCount; i++, angle += angleInc) {
+            geo.pushLineVertex(cx, cy, cx, cy);
+            geo.pushLineVertex(
+                cx + Math.sin(angle) * radius,
+                cy + Math.cos(angle) * radius,
+                cx,
+                cy
+            );
         }
 
-        verts.push(cx, cy);
-        verts.push(ex, ey);
-    }
-    else
-    {
-        verts.push(sx, sy);
-        verts.push(cx, cy);
+        geo.pushLineVertex(cx, cy, cx, cy);
+        geo.pushLineVertex(ex, ey, cx, cy);
+    } else {
+        geo.pushLineVertex(sx, sy, cx, cy);
+        geo.pushLineVertex(cx, cy, cx, cy);
 
-        for (let i = 1, angle = startAngle; i < segCount; i++, angle += angleInc)
-        {
-            verts.push(cx + ((Math.sin(angle) * radius)),
-                cy + ((Math.cos(angle) * radius)));
-            verts.push(cx, cy);
+        for (let i = 1, angle = startAngle; i < segCount; i++, angle += angleInc) {
+            geo.pushLineVertex(
+                cx + Math.sin(angle) * radius,
+                cy + Math.cos(angle) * radius,
+                cx,
+                cy
+            );
+            geo.pushLineVertex(cx, cy, cx, cy);
         }
 
-        verts.push(ex, ey);
-        verts.push(cx, cy);
+        geo.pushLineVertex(ex, ey, cx, cy);
+        geo.pushLineVertex(cx, cy, cx, cy);
     }
-
     return segCount * 2;
 }
 
@@ -178,14 +174,13 @@ function round(
  * @param {PIXI.GraphicsData} graphicsData - The graphics object containing all the necessary properties
  * @param {PIXI.GraphicsGeometry} graphicsGeometry - Geometry where to append output
  */
-function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void
-{
+function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void {
+    const geo = graphicsGeometry;
     const shape = graphicsData.shape as Polygon;
     let points = graphicsData.points || shape.points.slice();
     const eps = graphicsGeometry.closePointEps;
 
-    if (points.length === 0)
-    {
+    if (points.length === 0) {
         return;
     }
     // if the line width is an odd number add 0.5 to align to a whole pixel
@@ -208,13 +203,11 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
         && Math.abs(firstPoint.y - lastPoint.y) < eps;
 
     // if the first point is the last point - gonna have issues :)
-    if (closedShape)
-    {
+    if (closedShape) {
         // need to clone as we are going to slightly modify the shape..
         points = points.slice();
 
-        if (closedPath)
-        {
+        if (closedPath) {
             points.pop();
             points.pop();
             lastPoint.set(points[points.length - 2], points[points.length - 1]);
@@ -262,10 +255,8 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
     const innerWeight = (1 - ratio) * 2;
     const outerWeight = ratio * 2;
 
-    if (!closedShape)
-    {
-        if (style.cap === LINE_CAP.ROUND)
-        {
+    if (!closedShape) {
+        if (style.cap === LINE_CAP.ROUND) {
             indexCount += round(
                 x0 - (perpx * (innerWeight - outerWeight) * 0.5),
                 y0 - (perpy * (innerWeight - outerWeight) * 0.5),
@@ -273,26 +264,31 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
                 y0 - (perpy * innerWeight),
                 x0 + (perpx * outerWeight),
                 y0 + (perpy * outerWeight),
-                verts,
                 true,
+                geo
             ) + 2;
         }
-        else if (style.cap === LINE_CAP.SQUARE)
-        {
-            indexCount += square(x0, y0, perpx, perpy, innerWeight, outerWeight, true, verts);
+        else if (style.cap === LINE_CAP.SQUARE) {
+            indexCount += square(x0, y0, perpx, perpy, innerWeight, outerWeight, true, geo);
         }
     }
 
     // Push first point (below & above vertices)
-    verts.push(
-        x0 - (perpx * innerWeight),
-        y0 - (perpy * innerWeight));
-    verts.push(
-        x0 + (perpx * outerWeight),
-        y0 + (perpy * outerWeight));
+    geo.pushLineVertex(
+        x0 - perpx * innerWeight,
+        y0 - perpy * innerWeight,
+        x0,
+        y0
+    );
+    geo.pushLineVertex(
+        x0 + perpx * outerWeight,
+        y0 + perpy * outerWeight,
+        x0,
+        y0
+    );
 
-    for (let i = 1; i < length - 1; ++i)
-    {
+
+    for (let i = 1; i < length - 1; ++i) {
         x0 = points[(i - 1) * 2];
         y0 = points[((i - 1) * 2) + 1];
 
@@ -331,15 +327,19 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
         const clockwise = (cross < 0);
 
         /* Going nearly straight? */
-        if (Math.abs(cross) < 0.1)
-        {
-            verts.push(
-                x1 - (perpx * innerWeight),
-                y1 - (perpy * innerWeight));
-            verts.push(
-                x1 + (perpx * outerWeight),
-                y1 + (perpy * outerWeight));
-
+        if (Math.abs(cross) < 0.1) {
+            geo.pushLineVertex(
+                x1 - perpx * innerWeight,
+                y1 - perpy * innerWeight,
+                x1,
+                y1
+            );
+            geo.pushLineVertex(
+                x1 + perpx * outerWeight,
+                y1 + perpy * outerWeight,
+                x1,
+                y1
+            );
             continue;
         }
 
@@ -363,111 +363,154 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
         const smallerInsideDiagonalSq = smallerInsideSegmentSq + (insideWeight * insideWeight * widthSquared);
         const insideMiterOk = pdist <= smallerInsideDiagonalSq;
 
-        if (insideMiterOk)
-        {
-            if (style.join === LINE_JOIN.BEVEL || pdist / widthSquared > miterLimitSquared)
-            {
-                if (clockwise) /* rotating at inner angle */
-                {
-                    verts.push(imx, imy);// inner miter point
-                    verts.push(x1 + (perpx * outerWeight), y1 + (perpy * outerWeight));// first segment's outer vertex
-                    verts.push(imx, imy);// inner miter point
-                    verts.push(x1 + (perp1x * outerWeight), y1 + (perp1y * outerWeight));// second segment's outer vertex
+        if (insideMiterOk) {
+            if (style.join === LINE_JOIN.BEVEL || pdist / widthSquared > miterLimitSquared) {
+                if (clockwise) /* rotating at inner angle */ {
+                    geo.pushLineVertex(imx, imy, x1, y1);
+                    geo.pushLineVertex(
+                        x1 + perpx * outerWeight,
+                        y1 + perpy * outerWeight,
+                        x1,
+                        y1
+                    );
+                    geo.pushLineVertex(imx, imy, x1, y1);
+                    geo.pushLineVertex(
+                        x1 + perp1x * outerWeight,
+                        y1 + perp1y * outerWeight,
+                        x1,
+                        y1
+                    );
                 }
-                else /* rotating at outer angle */
-                {
-                    verts.push(x1 - (perpx * innerWeight), y1 - (perpy * innerWeight));// first segment's inner vertex
-                    verts.push(omx, omy);// outer miter point
-                    verts.push(x1 - (perp1x * innerWeight), y1 - (perp1y * innerWeight));// second segment's outer vertex
-                    verts.push(omx, omy);// outer miter point
+                else /* rotating at outer angle */ {
+                    geo.pushLineVertex(
+                        x1 - perpx * innerWeight,
+                        y1 - perpy * innerWeight,
+                        x1,
+                        y1
+                    ); // first segment's inner vertex
+                    geo.pushLineVertex(omx, omy, x1, y1); // outer miter point
+                    geo.pushLineVertex(
+                        x1 - perp1x * innerWeight,
+                        y1 - perp1y * innerWeight,
+                        x1,
+                        y1
+                    );
+                    geo.pushLineVertex(omx, omy, x1, y1); // outer miter point
                 }
 
                 indexCount += 2;
             }
-            else if (style.join === LINE_JOIN.ROUND)
-            {
-                if (clockwise) /* arc is outside */
-                {
-                    verts.push(imx, imy);
-                    verts.push(x1 + (perpx * outerWeight), y1 + (perpy * outerWeight));
-
+            else if (style.join === LINE_JOIN.ROUND) {
+                if (clockwise) /* arc is outside */ {
+                    geo.pushLineVertex(imx, imy, x1, y1);
+                    geo.pushLineVertex(
+                        x1 + perpx * outerWeight,
+                        y1 + perpy * outerWeight,
+                        x1,
+                        y1
+                    );
                     indexCount += round(
                         x1, y1,
                         x1 + (perpx * outerWeight), y1 + (perpy * outerWeight),
                         x1 + (perp1x * outerWeight), y1 + (perp1y * outerWeight),
-                        verts, true
+                        true, geo
                     ) + 4;
 
-                    verts.push(imx, imy);
-                    verts.push(x1 + (perp1x * outerWeight), y1 + (perp1y * outerWeight));
+                    geo.pushLineVertex(imx, imy, x1, y1);
+                    geo.pushLineVertex(
+                        x1 + perp1x * outerWeight,
+                        y1 + perp1y * outerWeight,
+                        x1,
+                        y1
+                    );
                 }
-                else /* arc is inside */
-                {
-                    verts.push(x1 - (perpx * innerWeight), y1 - (perpy * innerWeight));
-                    verts.push(omx, omy);
-
+                else /* arc is inside */ {
+                    geo.pushLineVertex(
+                        x1 - perpx * innerWeight,
+                        y1 - perpy * innerWeight,
+                        x1,
+                        y1
+                    );
+                    geo.pushLineVertex(omx, omy, x1, y1);
                     indexCount += round(
                         x1, y1,
                         x1 - (perpx * innerWeight), y1 - (perpy * innerWeight),
                         x1 - (perp1x * innerWeight), y1 - (perp1y * innerWeight),
-                        verts, false
+                        false, geo
                     ) + 4;
-
-                    verts.push(x1 - (perp1x * innerWeight), y1 - (perp1y * innerWeight));
-                    verts.push(omx, omy);
+                    geo.pushLineVertex(
+                        x1 - perp1x * innerWeight,
+                        y1 - perp1y * innerWeight,
+                        x1,
+                        y1
+                    );
+                    geo.pushLineVertex(omx, omy, x1, y1);
                 }
             }
-            else
-            {
-                verts.push(imx, imy);
-                verts.push(omx, omy);
+            else {
+                geo.pushLineVertex(imx, imy, x1, y1);
+                geo.pushLineVertex(omx, omy, x1, y1);
             }
         }
         else // inside miter is NOT ok
         {
-            verts.push(x1 - (perpx * innerWeight), y1 - (perpy * innerWeight)); // first segment's inner vertex
-            verts.push(x1 + (perpx * outerWeight), y1 + (perpy * outerWeight)); // first segment's outer vertex
-            if (style.join === LINE_JOIN.BEVEL || pdist / widthSquared > miterLimitSquared)
-            {
+            geo.pushLineVertex(
+                x1 - perpx * innerWeight,
+                y1 - perpy * innerWeight,
+                x1,
+                y1
+            );
+            geo.pushLineVertex(
+                x1 + perpx * outerWeight,
+                y1 + perpy * outerWeight,
+                x1,
+                y1
+            );
+
+            if (style.join === LINE_JOIN.BEVEL || pdist / widthSquared > miterLimitSquared) {
                 // Nothing needed
             }
-            else if (style.join === LINE_JOIN.ROUND)
-            {
-                if (clockwise) /* arc is outside */
-                {
+            else if (style.join === LINE_JOIN.ROUND) {
+                if (clockwise) /* arc is outside */ {
                     indexCount += round(
                         x1, y1,
                         x1 + (perpx * outerWeight), y1 + (perpy * outerWeight),
                         x1 + (perp1x * outerWeight), y1 + (perp1y * outerWeight),
-                        verts, true
+                        true, geo
                     ) + 2;
                 }
-                else /* arc is inside */
-                {
+                else /* arc is inside */ {
                     indexCount += round(
                         x1, y1,
                         x1 - (perpx * innerWeight), y1 - (perpy * innerWeight),
                         x1 - (perp1x * innerWeight), y1 - (perp1y * innerWeight),
-                        verts, false
+                        false, geo
                     ) + 2;
                 }
             }
-            else
-            {
-                if (clockwise)
-                {
-                    verts.push(omx, omy); // inner miter point
-                    verts.push(omx, omy); // inner miter point
+            else {
+                if (clockwise) {
+                    geo.pushLineVertex(omx, omy, x1, y1);
+                    geo.pushLineVertex(omx, omy, x1, y1);
                 }
-                else
-                {
-                    verts.push(imx, imy); // outer miter point
-                    verts.push(imx, imy); // outer miter point
+                else {
+                    geo.pushLineVertex(imx, imy, x1, y1);
+                    geo.pushLineVertex(imx, imy, x1, y1);
                 }
                 indexCount += 2;
             }
-            verts.push(x1 - (perp1x * innerWeight), y1 - (perp1y * innerWeight)); // second segment's inner vertex
-            verts.push(x1 + (perp1x * outerWeight), y1 + (perp1y * outerWeight)); // second segment's outer vertex
+            geo.pushLineVertex(
+                x1 - perp1x * innerWeight,
+                y1 - perp1y * innerWeight,
+                x1,
+                y1
+            );
+            geo.pushLineVertex(
+                x1 + perp1x * outerWeight,
+                y1 + perp1y * outerWeight,
+                x1,
+                y1
+            );
             indexCount += 2;
         }
     }
@@ -487,13 +530,21 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
     perpx *= width;
     perpy *= width;
 
-    verts.push(x1 - (perpx * innerWeight), y1 - (perpy * innerWeight));
-    verts.push(x1 + (perpx * outerWeight), y1 + (perpy * outerWeight));
+    geo.pushLineVertex(
+        x1 - perpx * innerWeight,
+        y1 - perpy * innerWeight,
+        x1,
+        y1
+    );
+    geo.pushLineVertex(
+        x1 + perpx * outerWeight,
+        y1 + perpy * outerWeight,
+        x1,
+        y1
+    );
 
-    if (!closedShape)
-    {
-        if (style.cap === LINE_CAP.ROUND)
-        {
+    if (!closedShape) {
+        if (style.cap === LINE_CAP.ROUND) {
             indexCount += round(
                 x1 - (perpx * (innerWeight - outerWeight) * 0.5),
                 y1 - (perpy * (innerWeight - outerWeight) * 0.5),
@@ -501,13 +552,12 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
                 y1 - (perpy * innerWeight),
                 x1 + (perpx * outerWeight),
                 y1 + (perpy * outerWeight),
-                verts,
-                false
+
+                false, geo
             ) + 2;
         }
-        else if (style.cap === LINE_CAP.SQUARE)
-        {
-            indexCount += square(x1, y1, perpx, perpy, innerWeight, outerWeight, false, verts);
+        else if (style.cap === LINE_CAP.SQUARE) {
+            indexCount += square(x1, y1, perpx, perpy, innerWeight, outerWeight, false, geo);
         }
     }
 
@@ -515,8 +565,7 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
     const eps2 = GRAPHICS_CURVES.epsilon * GRAPHICS_CURVES.epsilon;
 
     // indices.push(indexStart);
-    for (let i = indexStart; i < indexCount + indexStart - 2; ++i)
-    {
+    for (let i = indexStart; i < indexCount + indexStart - 2; ++i) {
         x0 = verts[(i * 2)];
         y0 = verts[(i * 2) + 1];
 
@@ -527,8 +576,7 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
         y2 = verts[((i + 2) * 2) + 1];
 
         /* Skip zero area triangles */
-        if (Math.abs((x0 * (y1 - y2)) + (x1 * (y2 - y0)) + (x2 * (y0 - y1))) < eps2)
-        {
+        if (Math.abs((x0 * (y1 - y2)) + (x1 * (y2 - y0)) + (x2 * (y0 - y1))) < eps2) {
             continue;
         }
 
@@ -546,8 +594,8 @@ function buildNonNativeLine(graphicsData: GraphicsData, graphicsGeometry: Graphi
  * @param {PIXI.GraphicsData} graphicsData - The graphics object containing all the necessary properties
  * @param {PIXI.GraphicsGeometry} graphicsGeometry - Geometry where to append output
  */
-function buildNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void
-{
+function buildNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void {
+    const geo = graphicsGeometry;
     let i = 0;
 
     const shape = graphicsData.shape as Polygon;
@@ -565,16 +613,14 @@ function buildNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsG
 
     verts.push(points[0], points[1]);
 
-    for (i = 1; i < length; i++)
-    {
-        verts.push(points[i * 2], points[(i * 2) + 1]);
+    for (i = 1; i < length; i++) {
+        geo.pushLineVertex(points[i * 2], points[(i * 2) + 1], points[i * 2], points[(i * 2) + 1]);
         indices.push(currentIndex, currentIndex + 1);
 
         currentIndex++;
     }
 
-    if (closedShape)
-    {
+    if (closedShape) {
         indices.push(currentIndex, startIndex);
     }
 }
@@ -589,14 +635,11 @@ function buildNativeLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsG
  * @param {PIXI.GraphicsData} graphicsData - The graphics object containing all the necessary properties
  * @param {PIXI.GraphicsGeometry} graphicsGeometry - Geometry where to append output
  */
-export function buildLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void
-{
-    if (graphicsData.lineStyle.native)
-    {
+export function buildLine(graphicsData: GraphicsData, graphicsGeometry: GraphicsGeometry): void {
+    if (graphicsData.lineStyle.native) {
         buildNativeLine(graphicsData, graphicsGeometry);
     }
-    else
-    {
+    else {
         buildNonNativeLine(graphicsData, graphicsGeometry);
     }
 }

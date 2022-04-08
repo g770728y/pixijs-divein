@@ -37,12 +37,13 @@ export const buildRectangle: IShapeBuildCommand = {
 
     triangulate(graphicsData, graphicsGeometry)
     {
+        const geo = graphicsGeometry;
         const points = graphicsData.points;
         const verts = graphicsGeometry.points;
 
         const vertPos = verts.length / 2;
 
-        verts.push(points[0], points[1],
+        geo.pushFillVertex(points[0], points[1],
             points[2], points[3],
             points[6], points[7],
             points[4], points[5]);

@@ -1,9 +1,13 @@
-import { Container } from '@pixi/display';
-import { autoDetectRenderer } from '@pixi/core';
+import { Container } from "@pixi/display";
+import { autoDetectRenderer, IRendererRenderOptions } from "@pixi/core";
 
-import type { Rectangle } from '@pixi/math';
-import type { Renderer, IRendererOptionsAuto, AbstractRenderer } from '@pixi/core';
-import type { IDestroyOptions } from '@pixi/display';
+import type { Rectangle } from "@pixi/math";
+import type {
+    Renderer,
+    IRendererOptionsAuto,
+    AbstractRenderer,
+} from "@pixi/core";
+import type { IDestroyOptions } from "@pixi/display";
 
 /**
  * Any plugin that's usable for Application should contain these methods.
@@ -24,7 +28,9 @@ export interface IApplicationPlugin {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface IApplicationOptions extends IRendererOptionsAuto, GlobalMixins.IApplicationOptions {}
+export interface IApplicationOptions
+    extends IRendererOptionsAuto,
+        GlobalMixins.IApplicationOptions {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface Application extends GlobalMixins.Application {}
@@ -47,8 +53,7 @@ export interface Application extends GlobalMixins.Application {}
  * @class
  * @memberof PIXI
  */
-export class Application
-{
+export class Application {
     /** Collection of installed plugins. */
     private static _plugins: IApplicationPlugin[] = [];
 
@@ -62,7 +67,7 @@ export class Application
      * WebGL renderer if available, otherwise CanvasRenderer.
      * @member {PIXI.Renderer|PIXI.CanvasRenderer}
      */
-    public renderer: Renderer|AbstractRenderer;
+    public renderer: Renderer | AbstractRenderer;
 
     /**
      * @param {object} [options] - The optional renderer parameters.
@@ -97,18 +102,19 @@ export class Application
      * @param {boolean} [options.sharedLoader=false] - `true` to use PIXI.Loader.shared, `false` to create new Loader.
      * @param {Window|HTMLElement} [options.resizeTo] - Element to automatically resize stage to.
      */
-    constructor(options?: IApplicationOptions)
-    {
+    constructor(options?: IApplicationOptions) {
         // The default options
-        options = Object.assign({
-            forceCanvas: false,
-        }, options);
+        options = Object.assign(
+            {
+                forceCanvas: false,
+            },
+            options
+        );
 
         this.renderer = autoDetectRenderer(options);
 
         // install plugins here
-        Application._plugins.forEach((plugin) =>
-        {
+        Application._plugins.forEach((plugin) => {
             plugin.init.call(this, options);
         });
     }
@@ -118,16 +124,14 @@ export class Application
      * @static
      * @param {PIXI.IApplicationPlugin} plugin - Plugin being installed
      */
-    static registerPlugin(plugin: IApplicationPlugin): void
-    {
+    static registerPlugin(plugin: IApplicationPlugin): void {
         Application._plugins.push(plugin);
     }
 
     /**
      * Render the current stage.
      */
-    public render(): void
-    {
+    public render(): void {
         this.renderer.render(this.stage);
     }
 
@@ -136,8 +140,7 @@ export class Application
      * @member {HTMLCanvasElement}
      * @readonly
      */
-    get view(): HTMLCanvasElement
-    {
+    get view(): HTMLCanvasElement {
         return this.renderer.view;
     }
 
@@ -146,8 +149,7 @@ export class Application
      * @member {PIXI.Rectangle}
      * @readonly
      */
-    get screen(): Rectangle
-    {
+    get screen(): Rectangle {
         return this.renderer.screen;
     }
 
@@ -163,15 +165,16 @@ export class Application
      * @param {boolean} [stageOptions.baseTexture=false] - Only used for child Sprites if stageOptions.children is set
      *  to true. Should it destroy the base texture of the child sprite
      */
-    public destroy(removeView?: boolean, stageOptions?: IDestroyOptions|boolean): void
-    {
+    public destroy(
+        removeView?: boolean,
+        stageOptions?: IDestroyOptions | boolean
+    ): void {
         // Destroy plugins in the opposite order
         // which they were constructed
         const plugins = Application._plugins.slice(0);
 
         plugins.reverse();
-        plugins.forEach((plugin) =>
-        {
+        plugins.forEach((plugin) => {
             plugin.destroy.call(this);
         });
 
@@ -180,5 +183,11 @@ export class Application
 
         this.renderer.destroy(removeView);
         this.renderer = null;
+    }
+}
+
+export class ApplicationX extends Application {
+    public renderWithOptions(options?: IRendererRenderOptions): void {
+        this.renderer.render(this.stage, options);
     }
 }

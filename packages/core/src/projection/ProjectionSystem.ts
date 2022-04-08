@@ -116,12 +116,14 @@ export class ProjectionSystem implements ISystem
 
         if (this.transform)
         {
+            // TODO: 为何从外部设置transform不生效? 应该是 texture 部分没有生效
             this.projectionMatrix.append(this.transform);
         }
 
         const renderer =  this.renderer;
 
         renderer.globalUniforms.uniforms.projectionMatrix = this.projectionMatrix;
+        renderer.globalUniforms.uniforms.scale = Math.abs(this.transform?.a ?? 1);
         renderer.globalUniforms.update();
 
         // this will work for now
